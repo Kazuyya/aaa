@@ -38,7 +38,7 @@ if(a==='rmphoto'){byId(id).photo=null;render();save();return}
 pend={a,id};fi.multiple=a!=='photo';fi.click()});
 fi.onchange=async()=>{const fs=[...fi.files];fi.value='';if(!pend||!fs.length)return;
 if(pend.a==='add')await addFiles(fs);else if(pend.a==='sprite')await addFiles(fs,byId(pend.id));else byId(pend.id).photo=await sq(await rd(fs[0]));render();save()};
-$('#par').oninput=e=>par=+e.target.value;$('#fx').onchange=e=>fx=e.target.checked;
+$('#fx').onchange=e=>fx=e.target.checked;
 st.ondragover=e=>e.preventDefault();st.ondrop=async e=>{e.preventDefault();await addFiles(e.dataTransfer.files);render()};
 
 const note=t=>{$('#note').textContent=t};
