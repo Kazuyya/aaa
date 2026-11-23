@@ -1,5 +1,5 @@
 
-const hooks={render(){}};
+const hooks={render(){},sync(){}};
 const $=s=>document.querySelector(s),W=320,H=180,cv=$('#cv'),ctx=cv.getContext('2d'),R=Math.round,bub=$('#bubble');
 const S=4,Q=v=>Math.round(v*S)/S;cv.width=W*S;cv.height=H*S;
 const N=11,CX=160,TOP=50,WH=150,iso=(x,y)=>[CX+(x-y)*24,TOP+(x+y)*12],up=(p,h)=>[p[0],p[1]-h];
@@ -14,18 +14,22 @@ const dust=Array.from({length:30},()=>({x:Math.random()*W,y:Math.random()*H,vx:(
 /* ---------- state ---------- */
 let pets=[],T=0,par=1,fx=true,mx=0,my=0,inside=false,hp=null,pend=null;const cur={x:0,y:0};
 const KEY='pixelpets.v1',byId=id=>pets.find(p=>p.id===id);
-function save(){if(!ADMIN)return;try{localStorage.setItem(KEY,JSON.stringify(pets.map(({id,name,src,photo,frames,fps,speed,scale,msg,flip})=>({id,name,src,photo,frames,fps,speed,scale,msg,flip}))))}catch(e){}}
+const ser=()=>pets.map(({id,name,src,photo,frames,fps,speed,scale,msg,flip})=>({id,name,src,photo,frames,fps,speed,scale,msg,flip}));
+function save(){if(!ADMIN)return;try{localStorage.setItem(KEY,JSON.stringify(ser()))}catch(e){}hooks.sync()}
 function defaultSprite(){const c=document.createElement('canvas');c.width=64;c.height=16;const g=c.getContext('2d');
 for(let f=0;f<4;f++){const x=f*16,b=f%2;g.fillStyle='#f2a65a';g.fillRect(x+3,6+b,9,6);g.fillRect(x+10,3+b,5,5);g.fillRect(x+10,2+b,1,2);g.fillRect(x+14,2+b,1,2);
 g.fillStyle='#c97a34';g.fillRect(x+1,5+b,2,2);g.fillRect(x,3+b,2,3);g.fillRect(x+4+b,12,2,3);g.fillRect(x+9-b,12,2,3);
 g.fillStyle='#2b1a12';g.fillRect(x+13,4+b,1,1);g.fillStyle='#ff8a9a';g.fillRect(x+15,5+b,1,1)}return c.toDataURL()}
 const mk=o=>Object.assign({id:Math.random().toString(36).slice(2),name:'Mochi',frames:4,fps:8,speed:1,scale:2,msg:'',flip:false,photo:null,gx:2+Math.random()*3.4,gy:2.2+Math.random()*3.2,tx:3,ty:3,wait:1,face:1,t:0,fr:0,ok:false},o);
-function loadImg(p,fit){p.img=new Image();p.img.onload=()=>{p.ok=true;if(fit){p.frames=p.fixFrames||Math.max(1,R(p.img.width/p.img.height));delete p.fixFrames;p.scale=Math.min(4,Math.max(.25,R(34/p.img.height*4)/4))}hooks.render();save()};p.img.src=p.src}
-const ADMIN=!!window.ADMIN,DRAFT=ADMIN||location.search.includes('draft');
-async function boot(){const ls=()=>{try{const x=JSON.parse(localStorage.getItem(KEY)||'null');return x&&x.length?x:null}catch(e){return null}};
-const js=async()=>{try{const r=await fetch('/pets.json',{cache:'no-store'});if(r.ok){const x=await r.json();return x&&x.length?x:null}}catch(e){}return null};
-const d=DRAFT?(ls()||await js()):(await js()||ls());
-pets=(d||[{src:defaultSprite()}]).map(mk);pets.forEach(p=>loadImg(p,false));hooks.render()}
+function loadImg(p,fit){p.img=new Image();p.img.onload=()=>{p.ok=true;if(fit){p.frames=p.fixFrames||Math.max(1,R(p.img.width/p.img.height));delete p.fixFrames;p.scale=Math.min(4,Math.max(.25,R(34/p.img.height*4)/4))}hooks.render();if(fit)save()};p.img.src=p.src}
+const ADMIN=!!window.ADMIN;let lastJ='';
+const getApi=async()=>{try{const r=await fetch('/api/pets',{cache:'no-store'});if(r.ok){const x=await r.json();window.SERVER_OK=true;return Array.isArray(x.pets)?x.pets:null}}catch(e){}return null};
+const getJs=async()=>{try{const r=await fetch('/pets.json',{cache:'no-store'});if(r.ok){const x=await r.json();return x&&x.length?x:null}}catch(e){}return null};
+const getLs=()=>{try{const x=JSON.parse(localStorage.getItem(KEY)||'null');return x&&x.length?x:null}catch(e){return null}};
+async function boot(){let d=await getApi();if(d!==null)lastJ=JSON.stringify(d);else d=await getJs()||getLs()||[{src:defaultSprite()}];
+pets=d.map(mk);pets.forEach(p=>loadImg(p,false));hooks.render();if(!ADMIN)setInterval(poll,30000)}
+async function poll(){const d=await getApi();if(d===null)return;const j=JSON.stringify(d);if(j===lastJ)return;lastJ=j;
+pets=d.map(o=>{const old=pets.find(p=>p.id===o.id),n=mk(o);if(old){Object.assign(n,{gx:old.gx,gy:old.gy,tx:old.tx,ty:old.ty,wait:old.wait,face:old.face});if(old.src===o.src&&old.ok){n.img=old.img;n.ok=true}else loadImg(n,false)}else loadImg(n,false);return n})}
 const st=$('#stage');
 function mpos(e){const r=cv.getBoundingClientRect();mx=(e.clientX-r.left)/r.width*W;my=(e.clientY-r.top)/r.height*H;inside=true}
 st.addEventListener('pointermove',mpos);st.addEventListener('pointerdown',mpos);st.addEventListener('pointerleave',()=>inside=false);

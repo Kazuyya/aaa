@@ -43,7 +43,21 @@ st.ondragover=e=>e.preventDefault();st.ondrop=async e=>{e.preventDefault();await
 
 const note=t=>{$('#note').textContent=t};
 $('#exp').onclick=()=>{const d=pets.map(({id,name,src,photo,frames,fps,speed,scale,msg,flip})=>({id,name,src,photo,frames,fps,speed,scale,msg,flip})),a=document.createElement('a');
-a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));a.download='pets.json';a.click();note('pets.json terunduh. Taruh di root project (sejajar index.html) lalu deploy ulang.')};
+a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));a.download='pets.json';a.click();note('pets.json terunduh (backup).')};
 $('#imp').onclick=()=>$('#fj').click();
 $('#fj').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());pets=d.map(mk);pets.forEach(p=>loadImg(p,false));render();save();note('pets.json dimuat.')}catch(x){note('File pets.json tidak valid.')}e.target.value=''};
 hooks.render=render;render();
+/* ---- login + autosave ke server ---- */
+let KEYV=localStorage.getItem('pp.key')||'',unlocked=false,tm;
+const setSt=t=>note(t),lmsg=t=>$('#lmsg').textContent=t;
+async function tryKey(k){let r;try{r=await fetch('/api/login',{method:'POST',headers:{'x-admin-key':k}})}catch(e){lmsg('Tidak bisa terhubung ke server.');return false}
+if(r.status===200){KEYV=k;localStorage.setItem('pp.key',k);unlocked=true;$('#login').classList.remove('on');
+setSt(window.SERVER_OK?'Terhubung. Semua perubahan tersimpan otomatis & langsung live.':'Penyimpanan Blob belum tersambung (lihat panduan). Perubahan belum tersimpan di server.');return true}
+lmsg(r.status===401?'Password salah.':r.status===500?'ADMIN_PASSWORD belum diatur di Vercel.':'API tidak ditemukan ('+r.status+'). Pastikan folder api/ ikut ter-deploy.');return false}
+$('#lgo').onclick=()=>tryKey($('#lpw').value);$('#lpw').onkeydown=e=>{if(e.key==='Enter')tryKey($('#lpw').value)};
+function lock(){unlocked=false;localStorage.removeItem('pp.key');$('#login').classList.add('on');lmsg('Sesi berakhir, masukkan password lagi.')}
+(async()=>{if(!(KEYV&&await tryKey(KEYV)))$('#login').classList.add('on')})();
+async function push(){const body=JSON.stringify(ser());if(body.length>4.2e6){setSt('Terlalu besar (>4MB). Pakai gambar sprite yang lebih kecil.');return}
+try{const r=await fetch('/api/pets',{method:'POST',headers:{'content-type':'application/json','x-admin-key':KEYV},body});
+if(r.ok)setSt('Tersimpan ✓ langsung live ('+new Date().toLocaleTimeString()+')');else if(r.status===401)lock();else setSt('Gagal simpan ('+r.status+'). Cek Blob & env di Vercel.')}catch(e){setSt('Gagal simpan (offline?).')}}
+hooks.sync=()=>{if(!unlocked)return;if(!window.SERVER_OK){setSt('Blob belum tersambung, perubahan belum tersimpan di server.');return}setSt('Menyimpan…');clearTimeout(tm);tm=setTimeout(push,700)};
